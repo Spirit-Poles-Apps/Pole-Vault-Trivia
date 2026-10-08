@@ -15,7 +15,7 @@ function SetupNeeded() {
           <span className="outline">Connected</span>
         </h1>
         <p className="dim">
-          This build of Bar Raiser was made without its database settings, so the game can't load.
+          This build of Bar Exam was made without its database settings, so the game can't load.
         </p>
         <div className="list">
           {missingConfig.map((name) => (

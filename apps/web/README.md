@@ -1,4 +1,4 @@
-# Bar Raiser — pole vault trivia (web)
+# Bar Exam — pole vault trivia (web)
 
 React + Vite + TypeScript, talking directly to Supabase (no custom backend
 needed — see `submit_answer()` in the Supabase migrations for how scoring
