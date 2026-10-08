@@ -48,7 +48,7 @@ export function LandingScreen({ onChoose, error: outerError }: LandingScreenProp
         <h1 className="title title-xl" style={{ marginTop: 8 }}>
           Bar
           <br />
-          <span className="outline">Raiser</span>
+          <span className="outline">Exam</span>
         </h1>
       </div>
 
