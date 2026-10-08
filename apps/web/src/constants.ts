@@ -15,3 +15,21 @@ export const POOL_TIERS: { label: string; maxPlayers: number }[] = [
 export function minPlayersToStart(maxPlayers: number) {
   return Math.min(maxPlayers, 3);
 }
+
+// ---- Opening height ("Night Final" rules) ----
+// Every player picks their own opening height. Each right answer is a clear
+// and raises their bar by BAR_RAISE_CM; a wrong answer is a miss and the bar
+// stays. Points (not height) decide the standings.
+export const OPENING_MIN_CM = 150;
+export const OPENING_MAX_CM = 530;
+export const OPENING_STEP_CM = 5;
+export const OPENING_DEFAULT_CM = 240;
+export const BAR_RAISE_CM = 15;
+export const OPENING_STORAGE_KEY = "trivia_opening_cm";
+
+export const OPENING_PRESETS: { label: string; cm: number }[] = [
+  { label: "First-timer", cm: 150 },
+  { label: "High school", cm: 300 },
+  { label: "College", cm: 450 },
+  { label: "Elite", cm: 530 },
+];
