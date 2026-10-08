@@ -12,7 +12,7 @@ import type { Session } from "./types";
 
 type Stage =
   | { kind: "landing" }
-  | { kind: "pool-browse"; name: string }
+  | { kind: "pool-browse"; name: string; openingCm: number }
   | { kind: "in-session"; session: Session };
 
 export default function App() {
@@ -44,14 +44,14 @@ export default function App() {
     setStage({ kind: "landing" });
   }
 
-  async function handleChoose(name: string, mode: "solo" | "pool") {
+  async function handleChoose(name: string, mode: "solo" | "pool", openingCm: number) {
     setError(null);
     if (mode === "pool") {
-      setStage({ kind: "pool-browse", name });
+      setStage({ kind: "pool-browse", name, openingCm });
       return;
     }
     try {
-      enterSession(await createSoloSession(name));
+      enterSession(await createSoloSession(name, openingCm));
     } catch (e: any) {
       setError(e.message ?? "Could not start a solo game.");
     }
@@ -60,22 +60,14 @@ export default function App() {
   if (!loaded) return null;
 
   if (stage.kind === "landing") {
-    return (
-      <>
-        <LandingScreen onChoose={handleChoose} />
-        {error && (
-          <p className="error-text" style={{ textAlign: "center", marginTop: -12 }}>
-            {error}
-          </p>
-        )}
-      </>
-    );
+    return <LandingScreen onChoose={handleChoose} error={error} />;
   }
 
   if (stage.kind === "pool-browse") {
     return (
       <OpenPoolsScreen
         displayName={stage.name}
+        openingCm={stage.openingCm}
         onEntered={enterSession}
         onBack={() => setStage({ kind: "landing" })}
       />
@@ -136,8 +128,26 @@ function GameShell({ session, onLeave }: { session: Session; onLeave: () => void
     if (data) setPool(data as typeof pool);
   }
 
+  // Our own opening height lives on the saved session; prefer it so this
+  // player's screens work even if the database column isn't there yet.
+  const me = {
+    ...session.player,
+    opening_height_cm:
+      session.player.opening_height_cm ??
+      players.find((p) => p.id === session.player.id)?.opening_height_cm,
+  };
+  const playersWithMe = players.map((p) => (p.id === me.id ? { ...p, opening_height_cm: me.opening_height_cm } : p));
+
   if (pool.status === "waiting") {
-    return <LobbyScreen pool={pool} players={players} isHost={isHost} onStart={startGame} />;
+    return (
+      <LobbyScreen
+        pool={pool}
+        players={playersWithMe}
+        meId={me.id}
+        isHost={isHost}
+        onStart={startGame}
+      />
+    );
   }
 
   if (pool.status === "active" && currentRound) {
@@ -145,7 +155,7 @@ function GameShell({ session, onLeave }: { session: Session; onLeave: () => void
       <QuestionScreen
         poolId={pool.id}
         round={currentRound}
-        player={session.player}
+        player={me}
         isHost={isHost}
         isSolo={isSolo}
         onAdvance={advanceRound}
@@ -155,12 +165,21 @@ function GameShell({ session, onLeave }: { session: Session; onLeave: () => void
   }
 
   if (pool.status === "finished") {
-    return <LeaderboardScreen poolId={pool.id} onPlayAgain={onLeave} />;
+    return (
+      <LeaderboardScreen
+        poolId={pool.id}
+        poolCode={pool.code}
+        players={playersWithMe}
+        meId={me.id}
+        isSolo={isSolo}
+        onPlayAgain={onLeave}
+      />
+    );
   }
 
   return (
-    <div className="screen">
-      <p>Getting things ready&hellip;</p>
+    <div className="app" style={{ justifyContent: "center", alignItems: "center" }}>
+      <p className="label">Setting the bar&hellip;</p>
     </div>
   );
 }

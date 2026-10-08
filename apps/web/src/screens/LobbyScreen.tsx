@@ -1,51 +1,65 @@
 import { useState } from "react";
 import { minPlayersToStart } from "../constants";
+import { fmtHeight } from "../lib/height";
+import { Frame } from "../components/Frame";
 import type { Player, Pool } from "../types";
 
 interface LobbyScreenProps {
   pool: Pool;
   players: Player[];
+  meId: string;
   isHost: boolean;
   onStart: () => Promise<void>;
 }
 
-export function LobbyScreen({ pool, players, isHost, onStart }: LobbyScreenProps) {
+export function LobbyScreen({ pool, players, meId, isHost, onStart }: LobbyScreenProps) {
   const [starting, setStarting] = useState(false);
   const minToStart = minPlayersToStart(pool.max_players);
   const canStart = players.length >= minToStart;
 
   return (
-    <div className="screen">
-      <div className="card">
-        <p className="eyebrow">Pool code</p>
-        <h1 style={{ fontSize: 40, letterSpacing: "0.08em", marginBottom: 20 }}>{pool.code}</h1>
+    <Frame right={<>Warm-up · <b>{players.length}/{pool.max_players}</b> in</>} ticker>
+      <div>
+        <p className="kicker">Waiting for the flight</p>
+        <h1 className="title title-l" style={{ marginTop: 8 }}>
+          On the
+          <br />
+          <span className="outline">Runway</span>
+        </h1>
+      </div>
 
-        <p style={{ marginBottom: 8, color: "var(--text)" }}>
-          {players.length}/{pool.max_players} players in
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24 }}>
-          {players.map((p, i) => (
-            <div
-              key={p.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "8px 12px",
-                background: "var(--surface-raised)",
-                borderRadius: 4,
-              }}
-            >
-              <span>{p.display_name}</span>
-              {i === 0 && <span className="eyebrow">Host</span>}
-            </div>
-          ))}
-        </div>
+      <div className="board" aria-label={`Pool code ${pool.code}`}>
+        <span className="board-l">
+          Pool
+          <br />
+          code
+        </span>
+        <span className="board-r">{pool.code}</span>
+      </div>
+      <p className="dim" style={{ fontSize: 13, marginTop: -6 }}>
+        Friends can join this pool from Pool play on their phones.
+      </p>
 
+      <div className="list">
+        {players.map((p, i) => (
+          <div key={p.id} className="list-row">
+            <span>
+              {p.display_name}
+              {i === 0 && <span className="tag">Host</span>}
+              {p.id === meId && i !== 0 && <span className="tag">You</span>}
+            </span>
+            <span className="meta">
+              {p.opening_height_cm ? `opens ${fmtHeight(p.opening_height_cm)} m` : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: "auto", display: "grid", gap: 10 }}>
         {isHost ? (
           <>
             <button
-              className="btn-primary"
-              style={{ width: "100%" }}
+              className="btn btn-primary btn-block"
               disabled={starting || !canStart}
               onClick={async () => {
                 setStarting(true);
@@ -53,18 +67,18 @@ export function LobbyScreen({ pool, players, isHost, onStart }: LobbyScreenProps
                 setStarting(false);
               }}
             >
-              {starting ? "Starting..." : "Start game"}
+              {starting ? "Starting…" : "Start the competition"}
             </button>
             {!canStart && (
-              <p style={{ marginTop: 10, fontSize: 13, textAlign: "center" }}>
-                Need at least {minToStart} players to start
+              <p className="status-line">
+                Need at least {minToStart} vaulters to start
               </p>
             )}
           </>
         ) : (
-          <p>Waiting for the host to start the round&hellip;</p>
+          <p className="status-line">Waiting for the host to start the competition…</p>
         )}
       </div>
-    </div>
+    </Frame>
   );
 }

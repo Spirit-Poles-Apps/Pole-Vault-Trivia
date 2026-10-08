@@ -20,6 +20,9 @@ export interface Player {
   pool_id: string;
   display_name: string;
   joined_at: string;
+  /** Opening height in centimetres. Null for players who joined before the
+   *  column existed, or if the database migration hasn't been applied yet. */
+  opening_height_cm?: number | null;
 }
 
 export interface QuestionPublic {
