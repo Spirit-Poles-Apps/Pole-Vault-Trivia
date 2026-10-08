@@ -25,22 +25,7 @@ npm run dev
 4. **Host advances rounds** once the timer hits zero, up to `TOTAL_ROUNDS`
    (`src/constants.ts`), then finishes the game.
 5. **Leaderboard screen** — final standings, "Play again" clears local
-   session and returns to the join screen.
-
-## Deploy
-
-The repo's `.github/workflows/deploy.yml` builds this app and pushes it to
-Cloudflare Pages on every push to `main`. Set these repo secrets first:
-
-- `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — from your Supabase project
-- `CLOUDFLARE_API_TOKEN` — a token with Pages edit permission
-- `CLOUDFLARE_ACCOUNT_ID` — found in the Cloudflare dashboard sidebar
-
-Or deploy manually once to create the Pages project:
-```bash
-npm run build
-npx wrangler pages deploy dist --project-name=pole-vault-trivia
-```
+   session and returns to the join screen.`
 
 ## What's stubbed / next steps
 
