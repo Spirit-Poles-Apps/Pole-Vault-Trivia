@@ -1,5 +1,5 @@
 export const TOTAL_ROUNDS = 8;
-export const ROUND_DURATION_SECONDS = 20;
+export const ROUND_DURATION_SECONDS = 10;
 export const SESSION_STORAGE_KEY = "trivia_session";
 
 export const SOLO_MAX_PLAYERS = 1;
