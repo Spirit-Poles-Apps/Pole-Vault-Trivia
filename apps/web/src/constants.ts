@@ -1,7 +1,8 @@
 export const TOTAL_ROUNDS = 8;
-// Time per question depends on difficulty: harder questions are longer to read.
+// Time per question. All levels get 20 seconds for now; kept per level so it
+// can be tuned later without touching the game code.
 export type Difficulty = "easy" | "medium" | "hard";
-export const SECONDS_BY_DIFFICULTY: Record<Difficulty, number> = { easy: 10, medium: 15, hard: 20 };
+export const SECONDS_BY_DIFFICULTY: Record<Difficulty, number> = { easy: 20, medium: 20, hard: 20 };
 
 /** Questions get harder as the bar goes up: rounds 1-3 easy, 4-6 medium, 7-8 hard. */
 export function difficultyForRound(roundNumber: number): Difficulty {
@@ -10,8 +11,10 @@ export function difficultyForRound(roundNumber: number): Difficulty {
   return "hard";
 }
 
-/** Pause after an answer so players see Clear / Miss before the next question. */
+/** Pause after a right answer before the next question. */
 export const REVEAL_MS = 1400;
+/** Longer pause after a miss or time-out, so players can read the correct answer. */
+export const LEARN_MS = 3000;
 export const SESSION_STORAGE_KEY = "trivia_session";
 
 export const SOLO_MAX_PLAYERS = 1;

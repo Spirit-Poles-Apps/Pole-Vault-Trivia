@@ -7,6 +7,10 @@
   --stone: #8c877e;
   --magenta: #e4007c;
   --magenta-hi: #ff4fa7;
+  --right: #2fd47e;
+  --right-bg: rgba(47, 212, 126, 0.16);
+  --wrong: #ff4d4d;
+  --wrong-bg: rgba(255, 77, 77, 0.16);
   --hair: rgba(246, 243, 236, 0.13);
   --hair-strong: rgba(246, 243, 236, 0.35);
   --glass: rgba(246, 243, 236, 0.04);
@@ -375,10 +379,11 @@ button.list-row:hover:not(:disabled) { background: rgba(228, 0, 124, 0.08); }
 .answer i { font-style: normal; font-family: var(--font-mono); font-size: 11px; color: var(--stone); }
 .answer em { font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
 .answer.picked { border-color: var(--hair-strong); background: var(--glass); }
-.answer.clear { border-color: var(--magenta); background: linear-gradient(90deg, rgba(228, 0, 124, 0.32), rgba(228, 0, 124, 0.06)); }
-.answer.clear em { color: var(--magenta-hi); }
-.answer.miss { border-color: var(--hair-strong); }
-.answer.miss em { color: var(--stone); }
+/* Learning reveal: the correct answer always lights up green, a wrong pick red. */
+.answer.right { border-color: var(--right); background: var(--right-bg); box-shadow: inset 4px 0 0 var(--right); }
+.answer.right i, .answer.right em { color: var(--right); }
+.answer.wrong { border-color: var(--wrong); background: var(--wrong-bg); box-shadow: inset 4px 0 0 var(--wrong); }
+.answer.wrong i, .answer.wrong em { color: var(--wrong); }
 .answer.faded { opacity: 0.45; }
 
 .status-line { font-size: 13px; color: var(--stone); text-align: center; }
