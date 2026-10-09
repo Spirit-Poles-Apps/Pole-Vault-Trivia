@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Frame } from "../components/Frame";
-import { VaulterArt } from "../components/VaulterArt";
 import { HeightPicker } from "../components/HeightPicker";
 import { OPENING_DEFAULT_CM, OPENING_STORAGE_KEY } from "../constants";
 import { clampOpening } from "../lib/height";
@@ -42,8 +41,8 @@ export function LandingScreen({ onChoose, error: outerError }: LandingScreenProp
 
   return (
     <Frame right={<><b>UCS Spirit</b> · Reno</>} ticker>
-      <VaulterArt />
-      <div>
+      {/* Space reserved for official UCS Spirit / Bar Exam artwork. */}
+      <div style={{ paddingTop: "clamp(24px, 8vh, 72px)" }}>
         <p className="kicker">The pole vault trivia game</p>
         <h1 className="title title-xl" style={{ marginTop: 8 }}>
           Bar
