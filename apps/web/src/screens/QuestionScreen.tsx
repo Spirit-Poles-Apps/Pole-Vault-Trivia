@@ -1,10 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import { Frame } from "../components/Frame";
 import { TimerRing } from "../components/TimerRing";
 import { HeightLadder } from "../components/HeightLadder";
-import { BAR_RAISE_CM, OPENING_DEFAULT_CM, ROUND_DURATION_SECONDS, TOTAL_ROUNDS } from "../constants";
+import {
+  BAR_RAISE_CM,
+  OPENING_DEFAULT_CM,
+  REVEAL_MS,
+  SECONDS_BY_DIFFICULTY,
+  TOTAL_ROUNDS,
+  difficultyForRound,
+} from "../constants";
 import { barHeight, fmtHeight, ordinal } from "../lib/height";
 import { loadAttempts, saveAttempt, type Mark } from "../lib/attempts";
 import type { Player, QuestionPublic, Round } from "../types";
@@ -15,11 +22,26 @@ interface QuestionScreenProps {
   player: Player;
   isHost: boolean;
   isSolo: boolean;
+  playerCount: number;
   onAdvance: () => Promise<void>;
   onFinish: () => Promise<void>;
 }
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
+const LEVEL_LABEL = { easy: "Easy", medium: "Medium", hard: "Expert" } as const;
+
+/** Same shuffle for everyone in a round (seeded by round id), new order every round. */
+function shuffled<T>(items: T[], seed: string): T[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0;
+    const j = h % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 export function QuestionScreen({
   poolId,
@@ -27,18 +49,31 @@ export function QuestionScreen({
   player,
   isHost,
   isSolo,
+  playerCount,
   onAdvance,
   onFinish,
 }: QuestionScreenProps) {
   const [question, setQuestion] = useState<QuestionPublic | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [result, setResult] = useState<{ is_correct: boolean; points_awarded: number } | null>(
-    null
+  const [result, setResult] = useState<{
+    is_correct: boolean;
+    points_awarded: number;
+    roundId: string;
+  } | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    Math.max(0, Math.ceil((new Date(round.ends_at).getTime() - Date.now()) / 1000))
   );
-  const [secondsLeft, setSecondsLeft] = useState(ROUND_DURATION_SECONDS);
   const [advancing, setAdvancing] = useState(false);
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const advancedFor = useRef<string | null>(null);
   const [marks, setMarks] = useState<Record<number, Mark>>(() => loadAttempts(poolId, player.id));
-  const { rows } = useLeaderboard(poolId);
+  const { rows, refetch: refetchBoard } = useLeaderboard(poolId);
+  const level = question?.difficulty ?? difficultyForRound(round.round_number);
+  const totalSeconds = SECONDS_BY_DIFFICULTY[level];
+  const choices = useMemo(
+    () => (question ? shuffled(question.choices, round.id) : []),
+    [question, round.id]
+  );
 
   const opening = player.opening_height_cm ?? OPENING_DEFAULT_CM;
   const ranked = useMemo(() => [...rows].sort((a, b) => b.total_points - a.total_points), [rows]);
@@ -89,13 +124,16 @@ export function QuestionScreen({
     });
     if (!error && data) {
       const row = Array.isArray(data) ? data[0] : data;
-      setResult(row);
+      setResult({ ...row, roundId: round.id });
       record(row.is_correct ? "O" : "X");
+      refetchBoard();
     }
   }
 
   const isLastRound = round.round_number >= TOTAL_ROUNDS;
-  const roundOver = secondsLeft === 0;
+  // Checked against the clock too, so a new round never inherits "time's up"
+  // from the previous one for a split second.
+  const roundOver = secondsLeft === 0 && Date.now() >= new Date(round.ends_at).getTime();
 
   // Time ran out without an answer: that attempt is a miss.
   useEffect(() => {
@@ -103,19 +141,58 @@ export function QuestionScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundOver, selected, round.round_number]);
 
-  // Solo games have no one to click "Next" -- advance automatically
-  // after a short pause so the player can see their result first.
+  // Pool: keep an eye on how many vaulters have answered this round.
   useEffect(() => {
-    if (!isSolo || !roundOver || advancing) return;
+    if (isSolo) return;
+    setAnsweredCount(0);
+    let alive = true;
+    const check = async () => {
+      const { data } = await supabase
+        .from("round_answer_counts")
+        .select("answered")
+        .eq("round_id", round.id)
+        .maybeSingle();
+      if (alive && data) setAnsweredCount(Number(data.answered));
+    };
+    check();
+    const id = setInterval(check, 1000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [isSolo, round.id]);
+
+  // Move on as soon as there's nothing left to wait for:
+  //  - solo: the moment you answer (or the clock runs out)
+  //  - pool: the moment everyone has answered (or the clock runs out); the
+  //    host's device creates the next round and everyone follows.
+  const everyoneAnswered = !isSolo && playerCount > 0 && answeredCount >= playerCount;
+  const answeredThisRound = result?.roundId === round.id;
+  const readyToMove = isSolo ? answeredThisRound || roundOver : isHost && (everyoneAnswered || roundOver);
+
+  useEffect(() => {
+    if (!readyToMove || advancedFor.current === round.id) return;
+    advancedFor.current = round.id;
     setAdvancing(true);
+    let fired = false;
     const timer = setTimeout(async () => {
-      if (isLastRound) await onFinish();
-      else await onAdvance();
-      setAdvancing(false);
-    }, 1800);
-    return () => clearTimeout(timer);
+      fired = true;
+      try {
+        if (isLastRound) await onFinish();
+        else await onAdvance();
+      } finally {
+        setAdvancing(false);
+      }
+    }, REVEAL_MS);
+    return () => {
+      clearTimeout(timer);
+      if (!fired) {
+        advancedFor.current = null; // let it retry if this was cancelled early
+        setAdvancing(false);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSolo, roundOver, isLastRound]);
+  }, [readyToMove, round.id]);
 
   // Attempt card: each round so far at the height it was jumped, then the next bar.
   const attempts = useMemo(() => {
@@ -149,21 +226,21 @@ export function QuestionScreen({
           Your bar
           <span className="big">{fmtHeight(bar)} m</span>
         </div>
-        <TimerRing secondsLeft={secondsLeft} total={ROUND_DURATION_SECONDS} />
+        <TimerRing secondsLeft={secondsLeft} total={totalSeconds} />
       </div>
 
       <HeightLadder openingCm={opening} clears={clears} />
 
       <div className="lower">
         <p className="kicker">
-          Q{round.round_number}
+          Q{round.round_number} · {LEVEL_LABEL[level]}
           {question?.category ? ` · ${question.category}` : ""}
         </p>
         <h1 className="q">{question?.prompt ?? "Setting the bar…"}</h1>
       </div>
 
       <div className="answers">
-        {question?.choices.map((choice, i) => {
+        {choices.map((choice, i) => {
           const isPicked = selected === choice;
           let cls = "answer";
           let tag = "";
@@ -199,28 +276,30 @@ export function QuestionScreen({
         </p>
       )}
       {roundOver && !selected && <p className="status-line">Time's up. That attempt is a miss.</p>}
-      {isSolo && roundOver && (
-        <p className="status-line">{isLastRound ? "Tallying your competition…" : "Next attempt coming up…"}</p>
+      {!isSolo && selected && !roundOver && !everyoneAnswered && (
+        <p className="status-line">
+          Waiting for {Math.max(playerCount - answeredCount, 1)} more{" "}
+          {playerCount - answeredCount === 1 ? "vaulter" : "vaulters"}…
+        </p>
+      )}
+      {advancing && (
+        <p className="status-line">{isLastRound ? "Tallying the competition…" : "Next attempt coming up…"}</p>
       )}
 
-      {isHost && !isSolo && (
+      {isHost && !isSolo && roundOver && !advancing && (
         <button
           className="btn btn-primary btn-block"
-          disabled={!roundOver || advancing}
           onClick={async () => {
             setAdvancing(true);
-            if (isLastRound) await onFinish();
-            else await onAdvance();
-            setAdvancing(false);
+            try {
+              if (isLastRound) await onFinish();
+              else await onAdvance();
+            } finally {
+              setAdvancing(false);
+            }
           }}
         >
-          {!roundOver
-            ? "Clock running…"
-            : advancing
-            ? "Setting the bar…"
-            : isLastRound
-            ? "Final standings"
-            : "Next attempt"}
+          {isLastRound ? "Final standings" : "Next attempt"}
         </button>
       )}
 
