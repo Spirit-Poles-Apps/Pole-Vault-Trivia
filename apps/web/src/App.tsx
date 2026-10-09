@@ -6,8 +6,8 @@ import { OpenPoolsScreen } from "./screens/OpenPoolsScreen";
 import { LobbyScreen } from "./screens/LobbyScreen";
 import { QuestionScreen } from "./screens/QuestionScreen";
 import { LeaderboardScreen } from "./screens/LeaderboardScreen";
-import { createSoloSession, pickNextQuestionId } from "./lib/poolActions";
-import { ROUND_DURATION_SECONDS, SESSION_STORAGE_KEY } from "./constants";
+import { createRound, createSoloSession } from "./lib/poolActions";
+import { SESSION_STORAGE_KEY } from "./constants";
 import type { Session } from "./types";
 
 type Stage =
@@ -86,14 +86,7 @@ function GameShell({ session, onLeave }: { session: Session; onLeave: () => void
 
   async function startGame() {
     if (rounds.length === 0) {
-      const questionId = await pickNextQuestionId(askedQuestionIds);
-      const endsAt = new Date(Date.now() + ROUND_DURATION_SECONDS * 1000).toISOString();
-      await supabase.from("rounds").insert({
-        pool_id: pool.id,
-        question_id: questionId,
-        round_number: 1,
-        ends_at: endsAt,
-      });
+      await createRound(pool.id, 1, askedQuestionIds);
       await refetchRounds();
     }
     const { data } = await supabase
@@ -107,14 +100,7 @@ function GameShell({ session, onLeave }: { session: Session; onLeave: () => void
 
   async function advanceRound() {
     if (!currentRound) return;
-    const questionId = await pickNextQuestionId(askedQuestionIds);
-    const endsAt = new Date(Date.now() + ROUND_DURATION_SECONDS * 1000).toISOString();
-    await supabase.from("rounds").insert({
-      pool_id: pool.id,
-      question_id: questionId,
-      round_number: currentRound.round_number + 1,
-      ends_at: endsAt,
-    });
+    await createRound(pool.id, currentRound.round_number + 1, askedQuestionIds);
     await refetchRounds();
   }
 
@@ -158,6 +144,7 @@ function GameShell({ session, onLeave }: { session: Session; onLeave: () => void
         player={me}
         isHost={isHost}
         isSolo={isSolo}
+        playerCount={players.length}
         onAdvance={advanceRound}
         onFinish={finishGame}
       />
