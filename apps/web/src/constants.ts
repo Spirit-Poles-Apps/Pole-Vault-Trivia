@@ -1,5 +1,17 @@
 export const TOTAL_ROUNDS = 8;
-export const ROUND_DURATION_SECONDS = 10;
+// Time per question depends on difficulty: harder questions are longer to read.
+export type Difficulty = "easy" | "medium" | "hard";
+export const SECONDS_BY_DIFFICULTY: Record<Difficulty, number> = { easy: 10, medium: 15, hard: 20 };
+
+/** Questions get harder as the bar goes up: rounds 1-3 easy, 4-6 medium, 7-8 hard. */
+export function difficultyForRound(roundNumber: number): Difficulty {
+  if (roundNumber <= 3) return "easy";
+  if (roundNumber <= 6) return "medium";
+  return "hard";
+}
+
+/** Pause after an answer so players see Clear / Miss before the next question. */
+export const REVEAL_MS = 1400;
 export const SESSION_STORAGE_KEY = "trivia_session";
 
 export const SOLO_MAX_PLAYERS = 1;

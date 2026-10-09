@@ -1,5 +1,5 @@
 import { supabase } from "../supabaseClient";
-import { ROUND_DURATION_SECONDS } from "../constants";
+import { SECONDS_BY_DIFFICULTY, difficultyForRound, type Difficulty } from "../constants";
 import type { Player, Pool, Session } from "../types";
 
 /**
@@ -100,26 +100,42 @@ export async function joinPoolByCode(
   return joinPoolById(pool.id, displayName, openingCm);
 }
 
-export async function pickNextQuestionId(excludeIds: string[] = []): Promise<string> {
-  const { data, error } = await supabase.from("questions_public").select("id");
+/** Pick an unused question at the right difficulty for this round. */
+export async function pickNextQuestion(
+  roundNumber: number,
+  excludeIds: string[] = []
+): Promise<{ id: string; difficulty: Difficulty }> {
+  const want = difficultyForRound(roundNumber);
+  const { data, error } = await supabase.from("questions_public").select("id, difficulty");
   if (error || !data || data.length === 0) throw new Error("No questions available.");
-  const remaining = data.filter((q) => !excludeIds.includes(q.id));
-  const pool = remaining.length > 0 ? remaining : data; // recycle if pool runs out
-  return pool[Math.floor(Math.random() * pool.length)].id;
+  const unused = data.filter((q) => !excludeIds.includes(q.id));
+  const atLevel = unused.filter((q) => q.difficulty === want);
+  const pool = atLevel.length ? atLevel : unused.length ? unused : data; // never run dry
+  const q = pool[Math.floor(Math.random() * pool.length)];
+  const difficulty = (["easy", "medium", "hard"].includes(q.difficulty) ? q.difficulty : want) as Difficulty;
+  return { id: q.id, difficulty };
+}
+
+/**
+ * Start a round: pick the question and set its clock (10 / 15 / 20 s by
+ * difficulty). If another device already created this round, that's fine:
+ * the unique (pool_id, round_number) rule keeps just one.
+ */
+export async function createRound(poolId: string, roundNumber: number, excludeIds: string[] = []) {
+  const q = await pickNextQuestion(roundNumber, excludeIds);
+  const endsAt = new Date(Date.now() + SECONDS_BY_DIFFICULTY[q.difficulty] * 1000).toISOString();
+  await supabase.from("rounds").insert({
+    pool_id: poolId,
+    question_id: q.id,
+    round_number: roundNumber,
+    ends_at: endsAt,
+  });
 }
 
 /** Solo practice: a pool sized for one player that starts itself immediately. */
 export async function createSoloSession(displayName: string, openingCm: number): Promise<Session> {
   const session = await createPool(displayName, 1, openingCm);
-  const questionId = await pickNextQuestionId();
-
-  const endsAt = new Date(Date.now() + ROUND_DURATION_SECONDS * 1000).toISOString();
-  await supabase.from("rounds").insert({
-    pool_id: session.pool.id,
-    question_id: questionId,
-    round_number: 1,
-    ends_at: endsAt,
-  });
+  await createRound(session.pool.id, 1);
   await supabase.from("pools").update({ status: "active" }).eq("id", session.pool.id);
 
   return session;
