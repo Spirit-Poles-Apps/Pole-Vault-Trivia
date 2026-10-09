@@ -6,6 +6,7 @@ import { TimerRing } from "../components/TimerRing";
 import { HeightLadder } from "../components/HeightLadder";
 import {
   BAR_RAISE_CM,
+  LEARN_MS,
   OPENING_DEFAULT_CM,
   REVEAL_MS,
   SECONDS_BY_DIFFICULTY,
@@ -66,6 +67,8 @@ export function QuestionScreen({
   const [advancing, setAdvancing] = useState(false);
   const [answeredCount, setAnsweredCount] = useState(0);
   const advancedFor = useRef<string | null>(null);
+  // The right answer, once the server is willing to share it for this round.
+  const [reveal, setReveal] = useState<{ roundId: string; choice: string } | null>(null);
   const [marks, setMarks] = useState<Record<number, Mark>>(() => loadAttempts(poolId, player.id));
   const { rows, refetch: refetchBoard } = useLeaderboard(poolId);
   const level = question?.difficulty ?? difficultyForRound(round.round_number);
@@ -162,6 +165,26 @@ export function QuestionScreen({
     };
   }, [isSolo, round.id]);
 
+  // Ask for the correct answer once this player is done with the round.
+  // The server only shares it when the clock is out or everyone in the pool
+  // has answered, so retry every second until it says yes.
+  const doneHere = !!selected || roundOver;
+  const correctChoice = reveal?.roundId === round.id ? reveal.choice : null;
+  useEffect(() => {
+    if (!doneHere || correctChoice) return;
+    let alive = true;
+    const ask = async () => {
+      const { data } = await supabase.rpc("reveal_answer", { p_round_id: round.id });
+      if (alive && typeof data === "string" && data) setReveal({ roundId: round.id, choice: data });
+    };
+    ask();
+    const id = setInterval(ask, 1000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [doneHere, correctChoice, round.id]);
+
   // Move on as soon as there's nothing left to wait for:
   //  - solo: the moment you answer (or the clock runs out)
   //  - pool: the moment everyone has answered (or the clock runs out); the
@@ -183,7 +206,7 @@ export function QuestionScreen({
       } finally {
         setAdvancing(false);
       }
-    }, REVEAL_MS);
+    }, isSolo && result?.roundId === round.id && result.is_correct ? REVEAL_MS : LEARN_MS);
     return () => {
       clearTimeout(timer);
       if (!fired) {
@@ -242,11 +265,15 @@ export function QuestionScreen({
       <div className="answers">
         {choices.map((choice, i) => {
           const isPicked = selected === choice;
+          const isCorrect = correctChoice === choice;
           let cls = "answer";
           let tag = "";
-          if (isPicked && result) {
-            cls += result.is_correct ? " clear" : " miss";
-            tag = result.is_correct ? `Clear · +${BAR_RAISE_CM} cm` : "Miss";
+          if (isCorrect) {
+            cls += " right";
+            tag = isPicked ? `Clear · +${BAR_RAISE_CM} cm` : "Correct answer";
+          } else if (isPicked && result) {
+            cls += result.is_correct ? " right" : " wrong";
+            tag = result.is_correct ? `Clear · +${BAR_RAISE_CM} cm` : "Your answer";
           } else if (isPicked) {
             cls += " picked";
             tag = "Locking in…";
