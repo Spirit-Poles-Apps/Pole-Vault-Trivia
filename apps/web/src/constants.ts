@@ -4,10 +4,10 @@ export const TOTAL_ROUNDS = 8;
 export type Difficulty = "easy" | "medium" | "hard";
 export const SECONDS_BY_DIFFICULTY: Record<Difficulty, number> = { easy: 20, medium: 20, hard: 20 };
 
-/** Questions get harder as the bar goes up: rounds 1-3 easy, 4-6 medium, 7-8 hard. */
+/** Questions get harder as the bar goes up: rounds 1-4 easy, 5-7 medium, 8 expert. */
 export function difficultyForRound(roundNumber: number): Difficulty {
-  if (roundNumber <= 3) return "easy";
-  if (roundNumber <= 6) return "medium";
+  if (roundNumber <= 4) return "easy";
+  if (roundNumber <= 7) return "medium";
   return "hard";
 }
 
