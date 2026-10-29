@@ -46,6 +46,7 @@ export function OpenPoolsScreen({ displayName, openingCm, onEntered, onBack }: O
 
   return (
     <Frame
+      onHome={busy ? undefined : onBack}
       right={
         <>
           <b>{displayName}</b> · opens {fmtHeight(openingCm)}

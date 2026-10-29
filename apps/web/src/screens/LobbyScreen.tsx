@@ -10,15 +10,16 @@ interface LobbyScreenProps {
   meId: string;
   isHost: boolean;
   onStart: () => Promise<void>;
+  onLeave: () => void;
 }
 
-export function LobbyScreen({ pool, players, meId, isHost, onStart }: LobbyScreenProps) {
+export function LobbyScreen({ pool, players, meId, isHost, onStart, onLeave }: LobbyScreenProps) {
   const [starting, setStarting] = useState(false);
   const minToStart = minPlayersToStart(pool.max_players);
   const canStart = players.length >= minToStart;
 
   return (
-    <Frame right={<>Warm-up · <b>{players.length}/{pool.max_players}</b> in</>} ticker>
+    <Frame onHome={onLeave} right={<>Warm-up · <b>{players.length}/{pool.max_players}</b> in</>} ticker>
       <div>
         <p className="kicker">Waiting for the flight</p>
         <h1 className="title title-l" style={{ marginTop: 8 }}>

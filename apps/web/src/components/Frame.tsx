@@ -8,6 +8,8 @@ interface FrameProps {
   /** Right side of the bug. */
   right?: ReactNode;
   ticker?: boolean;
+  /** Shows a "Home" button in the top bar that returns to the start screen. */
+  onHome?: () => void;
   children: ReactNode;
 }
 
@@ -21,11 +23,18 @@ const TICKER_ITEMS = [
 ];
 
 /** Shared screen chrome: broadcast bug on top, optional fact ticker below. */
-export function Frame({ badge = "Live", still, right, ticker, children }: FrameProps) {
+export function Frame({ badge = "Live", still, right, ticker, onHome, children }: FrameProps) {
   return (
     <div className="app">
       <header className="bug">
-        <span className={still ? "live still" : "live"}>{badge}</span>
+        <span className="bug-left">
+          {onHome && (
+            <button type="button" className="home-btn" onClick={onHome} aria-label="Back to home screen">
+              ← Home
+            </button>
+          )}
+          <span className={still ? "live still" : "live"}>{badge}</span>
+        </span>
         <span>{right}</span>
       </header>
       <main className="app-body">{children}</main>

@@ -74,6 +74,19 @@ p { line-height: 1.55; }
   color: var(--stone);
 }
 .bug b { color: var(--ivory); }
+.bug-left { display: inline-flex; align-items: center; gap: 10px; }
+.home-btn {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--hair-strong);
+  border-radius: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ivory);
+}
+.home-btn:hover { border-color: var(--ivory); }
 .live {
   display: inline-flex;
   align-items: center;

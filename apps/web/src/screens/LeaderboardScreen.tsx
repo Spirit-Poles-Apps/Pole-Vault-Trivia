@@ -41,6 +41,7 @@ export function LeaderboardScreen({ poolId, poolCode, players, meId, isSolo, onP
 
   return (
     <Frame
+      onHome={onPlayAgain}
       badge="Final"
       still
       right={
