@@ -124,6 +124,15 @@ function GameShell({ session, onLeave }: { session: Session; onLeave: () => void
   };
   const playersWithMe = players.map((p) => (p.id === me.id ? { ...p, opening_height_cm: me.opening_height_cm } : p));
 
+  // Leaving the lobby. If nobody else has joined yet, close the pool so it
+  // doesn't linger in other players' "Join a pool" list.
+  async function leaveLobby() {
+    if (players.length <= 1) {
+      await supabase.from("pools").update({ status: "finished" }).eq("id", pool.id);
+    }
+    onLeave();
+  }
+
   if (pool.status === "waiting") {
     return (
       <LobbyScreen
@@ -132,6 +141,7 @@ function GameShell({ session, onLeave }: { session: Session; onLeave: () => void
         meId={me.id}
         isHost={isHost}
         onStart={startGame}
+        onLeave={leaveLobby}
       />
     );
   }
@@ -147,6 +157,7 @@ function GameShell({ session, onLeave }: { session: Session; onLeave: () => void
         playerCount={players.length}
         onAdvance={advanceRound}
         onFinish={finishGame}
+        onLeave={onLeave}
       />
     );
   }
