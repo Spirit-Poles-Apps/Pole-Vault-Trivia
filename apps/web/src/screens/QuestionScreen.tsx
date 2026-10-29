@@ -26,6 +26,7 @@ interface QuestionScreenProps {
   playerCount: number;
   onAdvance: () => Promise<void>;
   onFinish: () => Promise<void>;
+  onLeave: () => void;
 }
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -53,6 +54,7 @@ export function QuestionScreen({
   playerCount,
   onAdvance,
   onFinish,
+  onLeave,
 }: QuestionScreenProps) {
   const [question, setQuestion] = useState<QuestionPublic | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -238,6 +240,14 @@ export function QuestionScreen({
 
   return (
     <Frame
+      onHome={() => {
+        const msg = isSolo
+          ? "Leave this game and go back to the home screen?"
+          : isHost
+          ? "Leave this game? You're the host, so the other players' game may stall."
+          : "Leave this game and go back to the home screen?";
+        if (window.confirm(msg)) onLeave();
+      }}
       right={
         <>
           Attempt <b>{round.round_number}</b> of {TOTAL_ROUNDS}
